@@ -1,59 +1,103 @@
 #include <iostream>
-#include <vector>
-#include <chrono>
 #include <fstream>
+#include <vector>
+#include <list>
+#include <deque>
+#include <string>
+#include <chrono>
+#include <random>
+#include <algorithm>
 #include "Person.h"
 
-// Function to generate test files (as discussed)
-void generateData(std::string name, int count);
+// --- Utility: Generate random data file ---
+void generateData(const std::string& filename, int count) {
+    std::ofstream out(filename);
+    if (!out) return;
+    out << "Name Surname HW1 HW2 HW3 HW4 HW5 Exam\n";
+    
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(1, 10);
+
+    for (int i = 1; i <= count; ++i) {
+        out << "Name" << i << " Surname" << i << " ";
+        for (int j = 0; j < 5; ++j) out << dis(gen) << " ";
+        out << dis(gen) << "\n";
+    }
+}
+
+// --- Template logic for Vector, List, and Deque ---
+template <typename T>
+void runPerformanceTest(const std::string& containerName, const std::string& filename) {
+    T students;
+    T failed;
+
+    auto start = std::chrono::high_resolution_clock::now();
+
+    // 1. Reading
+    std::ifstream in(filename);
+    std::string header;
+    std::getline(in, header); // Skip header
+
+    std::string f, l;
+    while (in >> f >> l) {
+        std::vector<int> hws;
+        int grade, exam;
+        for (int i = 0; i < 5; ++i) {
+            in >> grade;
+            hws.push_back(grade);
+        }
+        in >> exam;
+        students.emplace_back(f, l, hws, exam);
+    }
+
+    // 2. Sorting
+    // Lists have their own member sort; Vectors/Deques use std::sort
+    if constexpr (std::is_same_v<T, std::list<Person>>) {
+        students.sort([](const Person& a, const Person& b) {
+            return a.getLastName() < b.getLastName();
+        });
+    } else {
+        std::sort(students.begin(), students.end(), [](const Person& a, const Person& b) {
+            return a.getLastName() < b.getLastName();
+        });
+    }
+
+    // 3. Splitting (Optimized Move)
+    auto it = students.begin();
+    while (it != students.end()) {
+        if (it->getFinal() < 5.0) {
+            failed.push_back(std::move(*it));
+            it = students.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> diff = end - start;
+
+    std::cout << containerName << " processed " << filename 
+              << " in " << diff.count() << "s" << std::endl;
+}
 
 int main() {
-    // 1. Setup the sizes for testing
-    std::vector<int> testSizes = {10000, 100000, 1000000};
-    
-    for (int size : testSizes) {
-        std::string filename = "students" + std::to_string(size) + ".txt";
-        
-        std::cout << "\n--- Testing with " << size << " records ---" << std::endl;
-        
-        // Step A: Generate the file
-        generateData(filename, size);
+    try {
+        std::vector<int> sizes = {1000, 10000, 100000}; // Add 1M and 10M for full test
 
-        // Step B: Start Timer
-        auto start = std::chrono::high_resolution_clock::now();
+        for (int count : sizes) {
+            std::string filename = "students" + std::to_string(count) + ".txt";
+            std::cout << "\n--- Size: " << count << " ---" << std::endl;
+            
+            generateData(filename, count);
 
-        try {
-            std::ifstream inFile(filename);
-            if (!inFile) throw std::runtime_error("Could not open file!");
-
-            std::vector<Person> allStudents;
-            std::vector<Person> passed;
-            std::vector<Person> failed;
-
-            // Step C: Read and Process (Simulation of the loop)
-            // In reality, you would use your overloaded >> or a custom read function
-            // ... (Reading Logic) ...
-
-            // Step D: Split into two categories
-            for (auto& s : allStudents) {
-                if (s.getFinal() >= 5.0) passed.push_back(s);
-                else failed.push_back(s);
-            }
-
-            // Step E: Save to two files
-            std::ofstream outP("passed.txt"), outF("failed.txt");
-            for (const auto& p : passed) outP << p << "\n";
-            for (const auto& f : failed) outF << f << "\n";
-
-        } catch (const std::exception& e) {
-            std::cerr << e.what() << std::endl;
+            // Run comparison
+            runPerformanceTest<std::vector<Person>>("Vector", filename);
+            runPerformanceTest<std::deque<Person>>("Deque ", filename);
+            runPerformanceTest<std::list<Person>>("List  ", filename);
         }
-
-        // Step F: Stop Timer
-        auto end = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> diff = end - start;
-        
-        std::cout << "Total time for " << size << ": " << diff.count() << " seconds" << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "Exception: " << e.what() << std::endl;
     }
 
     return 0;
