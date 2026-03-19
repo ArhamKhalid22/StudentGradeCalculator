@@ -1,0 +1,19 @@
+# Build files
+build/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.o
+*.obj
+*.exe
+*.out
+
+# Project files
+StudentGradeCalculator
+.DS_Store
+
+# Data files
+*.txt
+!CMakeLists.txt
+!README.md
