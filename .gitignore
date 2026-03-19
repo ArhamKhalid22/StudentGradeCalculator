@@ -1,0 +1,14 @@
+# Binaries
+student_app
+*.o
+*.out
+
+# Data files (Very large for 10M)
+students_*.txt
+passed_*.txt
+failed_*.txt
+
+# IDE/System
+.DS_Store
+.vscode/
+.idea/
